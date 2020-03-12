@@ -8,7 +8,7 @@ char columnLetters[] = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' };
 // 16 hex = board
 u64 whiteStart		= 0x000000000000FFFFULL;
 u64 blackStart		= 0xFFFF000000000000ULL;
-u64 pawnsStart		= 0x00F000000000FF00ULL;	// 2nd row, 7th row 
+u64 pawnsStart		= 0x00FF00000000FF00ULL;	// 2nd row, 7th row 
 u64 knightsStart	= 0x4200000000000042ULL;	// 1 index, 6 index on 1st row, 8th row: 2^1 = 2, 2^6 = 64 / 16 = 4.
 u64 bishopsStart	= 0x2400000000000024ULL;	// 2nd index, 5th index = 2^2 = 4, 2^(5-4)=2
 u64 rooksStart		= 0x1800000000000018ULL;	// 0st index, 7th index = 2^0 = 1, 2^(7-4)=8
@@ -25,6 +25,7 @@ void runAIOnlyGame(int depth)
 	board.rooks = rooksStart;
 	board.queens = queenStart;
 	board.kings = kingStart;
+	board.pawns = pawnsStart;
 	board.turn = White;
 
 	Sequence doSequence;

@@ -119,12 +119,14 @@ void makeAction(struct Board* pos, struct Action* action)
 	Piece p;
 	int endCell = findCellFromRC(action->endr, action->endc);
 
+	Turn enemy = (pos->turn == White ? Black : White);
+
 	if (action->actionType == Cannon || action->actionType == Melee)
 	{
 		p = findPieceAtCell(pos, endCell);
 
 		action->target = p;
-		removePiece(pos, p, endCell);
+		removePiece(pos, p, endCell, enemy);
 	}
 	else if (action->actionType == Move)
 	{
@@ -133,8 +135,9 @@ void makeAction(struct Board* pos, struct Action* action)
 		p = findPieceAtCell(pos, startCell);
 		action->target = p;
 
-		removePiece(pos, p, startCell);
-		addPiece(pos, p, endCell);
+		// remove before add or else Start = End fails.
+		removePiece(pos, p, startCell, pos->turn);
+		addPiece(pos, p, endCell, pos->turn);
 	}
 }
 
@@ -143,16 +146,19 @@ void unmakeAction(struct Board* pos, struct Action* action)
 	Piece p = action->target;
 	int endCell = findCellFromRC(action->endr, action->endc);
 
+	Turn enemy = (pos->turn == White ? Black : White);
+
 	if (action->actionType == Cannon || action->actionType == Melee)
 	{
-		addPiece(pos, p, endCell);
+		addPiece(pos, p, endCell, pos->turn);	// us now was enemy when the action happened
 	}
 	else if (action->actionType == Move)
 	{
 		int startCell = findCellFromRC(action->startr, action->startc);
 
-		addPiece(pos, p, startCell);
-		removePiece(pos, p, endCell);
+		// remove before add or else Start = End fails.
+		removePiece(pos, p, endCell, enemy);	// enemy now was Us when the action happened
+		addPiece(pos, p, startCell, enemy);
 	}
 }
 
@@ -270,7 +276,7 @@ bool isCannonActionLegal(struct Board* pos, struct Action* action)
 	while (c >= 0 && c <= 7 && r >= 0 && r <= 7)
 	{
 		if (pathCell == endCell)
-			continue;
+			break;
 
 		val = getBitAtIndex(pathCell, nonoccmask);
 
@@ -468,7 +474,7 @@ Piece findPieceAtCell(struct Board* pos, int index)
 	return (Piece)-1;
 }
 
-void removePiece(struct Board* pos, Piece piece, int index)
+void removePiece(struct Board* pos, Piece piece, int index, Turn t)
 {
 	u64 rmask = ~getBitRep(index);	// mask to remove at index bit
 
@@ -484,9 +490,14 @@ void removePiece(struct Board* pos, Piece piece, int index)
 		pos->queens = pos->queens & rmask;
 	else if (piece == King)
 		pos->kings = pos->kings & rmask;
+
+	if (t == White)
+		pos->white = pos->white & rmask;
+	else if (t == Black)
+		pos->black = pos->black & rmask;
 }
 
-void addPiece(struct Board* pos, Piece piece, int index)
+void addPiece(struct Board* pos, Piece piece, int index, Turn t)
 {
 	u64 amask = getBitRep(index);	// mask to add at index bit
 
@@ -502,6 +513,11 @@ void addPiece(struct Board* pos, Piece piece, int index)
 		pos->queens = pos->queens | amask;
 	else if (piece == King)
 		pos->kings = pos->kings | amask;
+
+	if (t == White)
+		pos->white = pos->white | amask;
+	else if (t == Black)
+		pos->black = pos->black | amask;
 }
 
 int bitCount(u64 val)
@@ -525,6 +541,7 @@ int rowCount(u64 val, Turn t)
 	int sval;
 	int accum = 0;
 	int row = 0;
+	int part = 0;
 	
 	while (val != 0)
 	{
@@ -540,7 +557,14 @@ int rowCount(u64 val, Turn t)
 		}
 
 		val = val >> 4;
-		row++;
+
+		if (part == 0)
+			part = 1;
+		else if (part == 1)
+		{
+			part = 0;
+			row++;
+		}
 	}
 
 	return accum;

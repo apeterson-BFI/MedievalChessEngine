@@ -34,6 +34,10 @@ function alphabeta(node, depth, α, β, maximizingPlayer) is
 int alphabeta(Board* pos, int depth, int alpha, int beta, Sequence* bestSequence)
 {
     Sequence sequence;
+    sequence.action1.cost = 0;
+    sequence.action2.cost = 0;
+    sequence.action3.cost = 0;
+
     bool abex = true;
     
     EngineEval eval;
@@ -77,9 +81,9 @@ bool chooseAction(Board* pos, EngineEval* eval, int depth, int* alpha, int* beta
     else if (seqIndex == 3)
         currAction = &(sequence->action3);
 
-    u64 friendlyMask = (pos->turn == White ? pos->white : pos->black);
-    u64 enemyMask = (pos->turn == White ? pos->black : pos->white);
-    u64 friendlyCannon = friendlyMask & pos->rooks;
+    u64 friendlyMask = (working->turn == White ? working->white : working->black);
+    u64 enemyMask = (working->turn == White ? working->black : working->white);
+    u64 friendlyCannon = friendlyMask & working->rooks;
 
     for (int moveCost = remaining; moveCost >= 1; moveCost--)
     {
@@ -96,7 +100,7 @@ bool chooseAction(Board* pos, EngineEval* eval, int depth, int* alpha, int* beta
 
             if (testVal == 1ULL)
             {
-                nonoccmask = ~(pos->white | pos->black) | (1ULL << moveIndex);
+                nonoccmask = ~(working->white | working->black) | (1ULL << moveIndex);
                 destMask = calcExtendedMoveMask(moveIndex, moveCost, nonoccmask);
 
                 for (int targetIndex = 0; targetIndex < 64; targetIndex++)
@@ -160,7 +164,7 @@ bool chooseAction(Board* pos, EngineEval* eval, int depth, int* alpha, int* beta
                 {
                     setCannonAction(currAction, cannonIndex, targetIndex);
 
-                    if (isCannonActionLegal(pos, currAction))
+                    if (isCannonActionLegal(working, currAction))
                     {
                         if (remaining == 1)
                         {
@@ -172,7 +176,7 @@ bool chooseAction(Board* pos, EngineEval* eval, int depth, int* alpha, int* beta
                         else
                         {
                             makeAction(working, currAction);
-                            abex = chooseAction(pos, eval, depth, alpha, beta, working, sequence, seqIndex++, remaining - 1, -1, bestSequence);
+                            abex = chooseAction(pos, eval, depth, alpha, beta, working, sequence, seqIndex + 1, remaining - 1, -1, bestSequence);
                             unmakeAction(working, currAction);
 
                             if (!abex)
@@ -201,7 +205,7 @@ bool chooseAction(Board* pos, EngineEval* eval, int depth, int* alpha, int* beta
         {
             setMeleeAction(currAction, targetIndex);
 
-            if (isMeleeActionLegal(pos, currAction))
+            if (isMeleeActionLegal(working, currAction))
             {
                 if (remaining == 1)
                 {
@@ -213,7 +217,7 @@ bool chooseAction(Board* pos, EngineEval* eval, int depth, int* alpha, int* beta
                 else
                 {
                     makeAction(working, currAction);
-                    abex = chooseAction(pos, eval, depth, alpha, beta, working, sequence, seqIndex++, remaining - 1, -1, bestSequence);
+                    abex = chooseAction(pos, eval, depth, alpha, beta, working, sequence, seqIndex + 1, remaining - 1, -1, bestSequence);
                     unmakeAction(working, currAction);
 
                     if (!abex)
@@ -238,6 +242,8 @@ bool tryMove(Board* pos, EngineEval* eval, int depth, int* alpha, int* beta, Seq
         eval->testvalue = heuristic(pos);
     else 
         eval->testvalue = alphabeta(pos, depth - 1, *alpha, *beta, NULL);
+
+    unmake(pos, sequence);
 
     if (pos->turn == White)
     {
@@ -271,7 +277,6 @@ bool tryMove(Board* pos, EngineEval* eval, int depth, int* alpha, int* beta, Seq
     }
 
     retVal = *alpha < *beta; // return true for normal situation, false for when the beta exclusion happens.
-    unmake(pos, sequence);
     return retVal;
 }
 
@@ -339,7 +344,9 @@ int heuristic(struct Board* pos)
     int queenAdv = pieceValue[Queen] * (bitCount(wQueen) - bitCount(bQueen));
     int kingAdv = pieceValue[King] * (bitCount(wKing) - bitCount(bKing));
 
-    int forwardAdv = rowCount(pos->white, White) - rowCount(pos->black, Black);
+    int rcW = rowCount(pos->white, White);
+    int rcB = rowCount(pos->black, Black);
+    int forwardAdv = rcW - rcB;
 
     int result = getResult(pos) * 1000;
 
